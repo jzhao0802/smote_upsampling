@@ -97,3 +97,15 @@ smote_10000 = smote_10000[,colnames(train_matched)]
 smote_10000 = as.data.frame(lapply(smote_10000, as.numeric))
 smote_10000_dataset = bind_rows(smote_10000, neg_train_unmatched)
 write_rds(smote_10000_dataset, "F:/Daniel/lookback_matching/data/smote_10000_dataset.rds")
+
+# ------------------------------------------------------------------------------
+# prepare random SMOTE: this is without lookback matching
+# ------------------------------------------------------------------------------
+
+smote_rand = read_csv("F:/Daniel/lookback_matching/data/pos_train_random_smote.csv")
+smote_rand$label = rep(1, 1000)
+smote_rand = smote_rand[,colnames(train_matched)]
+# some cols are character because they are all zeros
+smote_rand = as.data.frame(lapply(smote_rand, as.numeric))
+smote_rand_dataset = bind_rows(smote_rand, neg_train_unmatched)
+write_rds(smote_rand_dataset, "F:/Daniel/lookback_matching/data/smote_random_dataset.rds")
