@@ -1,9 +1,9 @@
 library(tidyverse)
 results_folder = "F:/Daniel/lookback_matching/data/"
 
-
-pos = read_rds("F:/Projects/Strongbridge/data/modelling/Advanced_model_data/03_train_capped_freq_datediffs.rds")
-pos = pos %>% filter(label==1)
+pos = read_rds("F:/Projects/Strongbridge/data/modelling/Advanced_model_data/04_combined_train_matched_test_capped_freq_datediff.rds")
+pos = pos %>% filter(subset=="pos")
+pos$subset = NULL
 # VERY IMPORTANT - take the top 1000 of positives so SMOTE doesn't see test pos
 train_ix = sample(1:1553, 1000)
 write_csv(data.frame(train_ix), file.path(results_folder, "pos_train_ix.csv"))

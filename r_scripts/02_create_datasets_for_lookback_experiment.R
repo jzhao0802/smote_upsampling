@@ -26,13 +26,15 @@ data_folder = "F:/Projects/Strongbridge/data/modelling/Advanced_model_data/"
 # prepare matched train dataset: 1000 pos and 50 matched neg for each
 # ------------------------------------------------------------------------------
 
-train_matched = read_rds(file.path(data_folder, "03_train_capped_freq_datediffs.rds"))
-pos_matched = train_matched %>% filter(label==1)
+train_matched = read_rds(file.path(data_folder, "04_combined_train_matched_test_capped_freq_datediff.rds"))
+pos_matched = train_matched %>% filter(subset=="pos")
+pos_matched$subset = NULL
 pos_train_ix = read_csv("F:/Daniel/lookback_matching/data/pos_train_ix.csv")$train_ix
 pos_test_ix = read_csv("F:/Daniel/lookback_matching/data/pos_test_ix.csv")$test_ix
 pos_matched_train = pos_matched[pos_train_ix,]
 pos_test = pos_matched[pos_test_ix,]
-neg_matched_train = train_matched %>% filter(test_patient_id %in% pos_matched_train$PATIENT_ID)
+neg_matched_train = train_matched %>% filter(test_patient_id %in% pos_matched_train$PATIENT_ID & subset == "train_neg")
+neg_matched_train$subset = NULL
 train_matched = bind_rows(pos_matched_train, neg_matched_train)
 train_matched$test_patient_id[1:1000] = train_matched$PATIENT_ID[1:1000]
 matching = as.factor(train_matched$test_patient_id)
@@ -103,9 +105,20 @@ write_rds(smote_10000_dataset, "F:/Daniel/lookback_matching/data/smote_10000_dat
 # ------------------------------------------------------------------------------
 
 smote_rand = read_csv("F:/Daniel/lookback_matching/data/pos_train_random_smote.csv")
-smote_rand$label = rep(1, 1000)
+smote_rand$label = rep(1, dim(smote_rand)[1])
 smote_rand = smote_rand[,colnames(train_matched)]
 # some cols are character because they are all zeros
 smote_rand = as.data.frame(lapply(smote_rand, as.numeric))
 smote_rand_dataset = bind_rows(smote_rand, neg_train_unmatched)
 write_rds(smote_rand_dataset, "F:/Daniel/lookback_matching/data/smote_random_dataset.rds")
+
+# ------------------------------------------------------------------------------
+# prepare unmatched train dataset: 1000 pos and 50 unmatched neg for each
+# ------------------------------------------------------------------------------
+
+pos_matched_train$PATIENT_ID = NULL
+pos_matched_train$index_date = NULL
+pos_matched_train$lookback_date = NULL
+pos_matched_train$test_patient_id = NULL
+train_unmatched = bind_rows(pos_matched_train, neg_train_unmatched)
+write_rds(train_unmatched, "F:/Daniel/lookback_matching/data/train_unmatched.rds")
