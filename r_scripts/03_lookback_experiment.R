@@ -1,5 +1,6 @@
 library(tidyverse)
 library(mlr)
+library(xgboost)
 library(palabmod)
 
 # ------------------------------------------------------------------------------
@@ -20,8 +21,15 @@ train_unmatched_df$label = as.factor(train_unmatched_df$label)
 test_dataset = read_rds(file.path(data_folder, "test_unmatched.rds"))
 test_dataset$label = as.factor(test_dataset$label)
 
+test_matched_dataset = read_rds(file.path(data_folder, "test_matched.rds"))
+test_matched_dataset$label = as.factor(test_matched_dataset$label)
+
 test_smote_dataset = read_rds(file.path(data_folder, "test_smote_unmatched.rds"))
 test_smote_dataset$label = as.factor(test_smote_dataset$label)
+
+duplicated_test_ix = read_csv(file.path(data_folder, "duplicated_test_ix.csv"))
+test_weighted_dataset = test_dataset
+test_weighted_dataset[1:553,] = test_weighted_dataset[duplicated_test_ix[['0']],]
 
 smote_1000_dataset = read_rds(file.path(data_folder, "smote_1000_dataset.rds"))
 smote_1000_dataset$label = as.factor(smote_1000_dataset$label)
@@ -33,6 +41,54 @@ smote_rand_dataset= read_rds(file.path(data_folder, "smote_random_dataset.rds"))
 smote_rand_dataset$label = as.factor(smote_rand_dataset$label)
 
 # ------------------------------------------------------------------------------
+# My last idea why smote is doing so well, especially smote random, is because
+# smote will have non-integer values for certain features, which are ALWAYS 
+# integers in the real data. For example, date diff vars are always integers, but
+# SMOTE might generate a 34.321 for example instead of 34. So I'll round certain
+# cols to the nearest integer in all smote datasets. 
+# ------------------------------------------------------------------------------
+
+cols_to_round = colnames(train_matched)[345:1026]
+train_matched[cols_to_round] = lapply(train_matched[cols_to_round], as.integer)
+train_unmatched_df[cols_to_round] = lapply(train_unmatched_df[cols_to_round], as.integer)
+test_dataset[cols_to_round] = lapply(test_dataset[cols_to_round], as.integer)
+test_matched_dataset[cols_to_round] = lapply(test_matched_dataset[cols_to_round], as.integer)
+test_smote_dataset[cols_to_round] = lapply(test_smote_dataset[cols_to_round], as.integer)
+test_weighted_dataset[cols_to_round] = lapply(test_weighted_dataset[cols_to_round], as.integer)
+smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], as.integer)
+smote_10000_dataset[cols_to_round] = lapply(smote_10000_dataset[cols_to_round], as.integer)
+smote_rand_dataset[cols_to_round] = lapply(smote_rand_dataset[cols_to_round], as.integer)
+
+# ------------------------------------------------------------------------------
+# Similarly and following the discussion with the team, all freq vars are rounded
+# to 1 decimal place.
+# ------------------------------------------------------------------------------
+
+cols_to_round = colnames(train_matched)[2:344]
+train_matched[cols_to_round] = lapply(train_matched[cols_to_round], function(x) round(x, 1))
+train_unmatched_df[cols_to_round] = lapply(train_unmatched_df[cols_to_round], function(x) round(x, 1))
+test_dataset[cols_to_round] = lapply(test_dataset[cols_to_round], function(x) round(x, 1))
+test_matched_dataset[cols_to_round] = lapply(test_matched_dataset[cols_to_round], function(x) round(x, 1))
+test_smote_dataset[cols_to_round] = lapply(test_smote_dataset[cols_to_round], function(x) round(x, 1))
+test_weighted_dataset[cols_to_round] = lapply(test_weighted_dataset[cols_to_round], function(x) round(x, 1))
+smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], function(x) round(x, 1))
+smote_10000_dataset[cols_to_round] = lapply(smote_10000_dataset[cols_to_round], function(x) round(x, 1))
+smote_rand_dataset[cols_to_round] = lapply(smote_rand_dataset[cols_to_round], function(x) round(x, 1))
+
+smote_1000_dataset = read_rds(file.path(data_folder, "smote_1000_dataset.rds"))
+smote_1000_dataset$label = as.factor(smote_1000_dataset$label)
+cols_to_round = colnames(train_matched)[345:1026]
+smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], as.integer)
+cols_to_round = colnames(train_matched)[2:344]
+smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], function(x) round(x, 1))
+y = smote_1000_dataset$label
+smote_1000_dataset$label = NULL
+cols = colnames(smote_1000_dataset)
+x = data.matrix(smote_1000_dataset)
+xgb2 = xgb2=xgboost(x,y, nrounds = 100)
+vi2=xgb.model.dt.tree(cols, xgb2)[Feature!="Leaf"]
+write_csv(vi2, "detailed_vi_trained_with_xgb.csv")
+# ------------------------------------------------------------------------------
 #
 # TRAIN XGBOOST MODELS AND EVALUATE PERFORMANCE
 #
@@ -42,7 +98,7 @@ smote_rand_dataset$label = as.factor(smote_rand_dataset$label)
 lrn <- makeLearner("classif.xgboost", predict.type="prob", predict.threshold=0.5)
 lrn$par.vals = list(
   nrounds = 100,
-  verbose = T,
+  verbose = F,
   objective = "binary:logistic"
 )
 
@@ -66,8 +122,14 @@ train_unmatched_weighted <- makeClassifTask(id="train_unmatched_wighted",
 
 test_dataset = makeClassifTask(id="test_dataset", 
                                data=test_dataset, target="label", positive=1)
+test_matched_dataset = makeClassifTask(id="test_matched_dataset", 
+                               data=test_matched_dataset, target="label", 
+                               positive=1)
 test_smote_dataset = makeClassifTask(id="test_smote_dataset", 
                                      data=test_smote_dataset, target="label", 
+                                     positive=1)
+test_weighted_dataset = makeClassifTask(id="test_weighted_dataset", 
+                                     data=test_weighted_dataset, target="label", 
                                      positive=1)
 
 smote_1000_dataset = makeClassifTask(id="smote_1000_dataset", 
@@ -80,23 +142,31 @@ smote_rand_dataset = makeClassifTask(id="smote_rand_dataset",
                                      data=smote_rand_dataset, target="label", 
                                      positive=1)
 
+
+
+
 # setup lists for iterating through experiments
 train_datasets_names = c("matched", "unmatched", "weighted", "smote1000", 
                          "smote10000", "smote_rand")
 train_datasets = list(train_matched, train_unmatched, train_unmatched_weighted, 
                       smote_1000_dataset, smote_10000_dataset, 
                       smote_rand_dataset)
-test_datasets_names = c("normal", "smote")
-test_datasets = list(test_dataset, test_smote_dataset)
+test_datasets_names = c("normal", "smote", "weighted", "matched")
+test_datasets = list(test_dataset, test_smote_dataset, test_weighted_dataset, 
+                     test_matched_dataset)
+
+# load variable name lookup 
+vlookup = read_csv(file.path(data_folder, "var_lookup.csv"))
 
 # iterate through all combinations
 for (i in 1:length(train_datasets)){
+  print(i)
   # train model
-  xgb = train(lrn, train_datasets[[i]])
   
-  # save VI
-  vi = xgboost::xgb.importance(getTaskFeatureNames(train_datasets[[i]]), 
-                               xgb$learner.model)
+  xgb = train(lrn, train_datasets[[i]])
+  # save detailed VI table, with vlookup var names
+  vi = results_xgb_splits(xgb$learner.model, train_datasets[[i]])
+  vi = plyr::join(vi, vlookup, by="Feature")
   filename = paste("vi_", train_datasets_names[[i]], ".csv", sep="")
   write_csv(vi, file.path(results_folder, filename))
   
