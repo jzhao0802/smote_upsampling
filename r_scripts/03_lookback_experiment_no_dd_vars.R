@@ -9,7 +9,7 @@ library(palabmod)
 #
 # ------------------------------------------------------------------------------
 
-results_folder = "F:/Daniel/lookback_matching/results"
+results_folder = "F:/Daniel/lookback_matching/results_no_dd_vars"
 data_folder = "F:/Daniel/lookback_matching/data"
 
 train_matched = read_rds(file.path(data_folder, "train_matched.rds"))
@@ -48,17 +48,6 @@ smote_rand_dataset$label = as.factor(smote_rand_dataset$label)
 # cols to the nearest integer in all smote datasets. 
 # ------------------------------------------------------------------------------
 
-cols_to_round = colnames(train_matched)[345:1026]
-train_matched[cols_to_round] = lapply(train_matched[cols_to_round], as.integer)
-train_unmatched_df[cols_to_round] = lapply(train_unmatched_df[cols_to_round], as.integer)
-test_dataset[cols_to_round] = lapply(test_dataset[cols_to_round], as.integer)
-test_matched_dataset[cols_to_round] = lapply(test_matched_dataset[cols_to_round], as.integer)
-test_smote_dataset[cols_to_round] = lapply(test_smote_dataset[cols_to_round], as.integer)
-test_weighted_dataset[cols_to_round] = lapply(test_weighted_dataset[cols_to_round], as.integer)
-smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], as.integer)
-smote_10000_dataset[cols_to_round] = lapply(smote_10000_dataset[cols_to_round], as.integer)
-smote_rand_dataset[cols_to_round] = lapply(smote_rand_dataset[cols_to_round], as.integer)
-
 # ------------------------------------------------------------------------------
 # Similarly and following the discussion with the team, all freq vars are rounded
 # to 1 decimal place.
@@ -75,19 +64,15 @@ smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], fu
 smote_10000_dataset[cols_to_round] = lapply(smote_10000_dataset[cols_to_round], function(x) round(x, 1))
 smote_rand_dataset[cols_to_round] = lapply(smote_rand_dataset[cols_to_round], function(x) round(x, 1))
 
-# smote_1000_dataset = read_rds(file.path(data_folder, "smote_1000_dataset.rds"))
-# smote_1000_dataset$label = as.factor(smote_1000_dataset$label)
-# cols_to_round = colnames(train_matched)[345:1026]
-# smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], as.integer)
-# cols_to_round = colnames(train_matched)[2:344]
-# smote_1000_dataset[cols_to_round] = lapply(smote_1000_dataset[cols_to_round], function(x) round(x, 1))
-# y = smote_1000_dataset$label
-# smote_1000_dataset$label = NULL
-# cols = colnames(smote_1000_dataset)
-# x = data.matrix(smote_1000_dataset)
-# xgb2 = xgb2=xgboost(x,y, nrounds = 100)
-# vi2=xgb.model.dt.tree(cols, xgb2)[Feature!="Leaf"]
-# write_csv(vi2, "detailed_vi_trained_with_xgb.csv")
+train_matched = train_matched[,1:344]
+train_unmatched_df = train_unmatched_df[,1:344]
+test_dataset = test_dataset[,1:344]
+test_matched_dataset = test_matched_dataset[,1:344]
+test_smote_dataset = test_smote_dataset[,1:344]
+test_weighted_dataset = test_weighted_dataset[,1:344]
+smote_1000_dataset = smote_1000_dataset[,1:344]
+smote_10000_dataset = smote_10000_dataset[,1:344]
+smote_rand_dataset = smote_rand_dataset[,1:344]
 
 # ------------------------------------------------------------------------------
 #
@@ -143,9 +128,6 @@ smote_rand_dataset = makeClassifTask(id="smote_rand_dataset",
                                      data=smote_rand_dataset, target="label", 
                                      positive=1)
 
-
-
-
 # setup lists for iterating through experiments
 train_datasets_names = c("matched", "unmatched", "weighted", "smote1000", 
                          "smote10000", "smote_rand")
@@ -165,11 +147,11 @@ for (i in 1:length(train_datasets)){
   # train model
   
   xgb = train(lrn, train_datasets[[i]])
-  # save detailed VI table, with vlookup var names
-  vi = results_xgb_splits(xgb$learner.model, train_datasets[[i]])
-  vi = plyr::join(vi, vlookup, by="Feature")
-  filename = paste("vi_", train_datasets_names[[i]], ".csv", sep="")
-  write_csv(vi, file.path(results_folder, filename))
+  # save detailed VI table, with vlookup var names - DOESN'T WORK FOR SOME REASON
+  # vi = results_xgb_splits(xgb$learner.model, train_datasets[[i]])
+  # vi = plyr::join(vi, vlookup, by="Feature")
+  # filename = paste("vi_", train_datasets_names[[i]], ".csv", sep="")
+  # write_csv(vi, file.path(results_folder, filename))
   
   # save model
   filename = paste("model_", train_datasets_names[[i]], ".rds", sep="")
